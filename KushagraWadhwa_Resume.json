@@ -1,0 +1,90 @@
+{
+  "name": "Kushagra Wadhwa",
+  "keywords": ["Python", "LLM", "RAG", "Data Science", "AI", "NLP", "Flask", "SQL"],
+  "job_description": "We are seeking an AI/ML engineer with experience in Python, LLMs, RAG pipelines, and NLP frameworks...",
+  "email": "wadhwakushagra263@gmail.com",
+  "phone": "+91 7428739746",
+  "location": "Delhi, India",
+  "summary": "Passionate AI and Data Science enthusiast with a strong foundation in Python, AI/ML, and NLP frameworks. Skilled in building innovative LLM powered solutions, RAG pipelines, and automation tools. Dedicated to solving real‑world problems with cutting‑edge technologies and delivering impactful results.",
+  "education": [
+    {
+      "degree": "B. Tech Artificial Intelligence and Machine Learning",
+      "institution": "Guru Gobind Singh Indraprastha University",
+      "year": "2021-2025 (Pursuing)"
+    }
+  ],
+  "experience": [
+    {
+      "title": "AI Project Intern",
+      "company": "Prodigal AI",
+      "duration": "September – November 2024",
+      "location": "Remote",
+      "description": "Developed an advanced 'Knowledge-AI' chatbot leveraging Llama Index and Gemini Embeddings, and implementing RAG pipelines, achieving accurate responses for document‑based queries."
+    },
+    {
+      "title": "Data Scientist Intern",
+      "company": "Deutsche Telekom Digital Labs",
+      "duration": "June – August 2024",
+      "location": "Gurugram, Haryana",
+      "description": "Engineered a document parser achieving 93% document coverage across HR policy documents, including structured table and image extraction. Developed a PDF analysis dashboard for real-time metrics (page count, word count, corpus stats), improving document analysis efficiency."
+    }
+  ],
+  "skills": [
+    "Python",
+    "Flask",
+    "Hugging Face",
+    "ML",
+    "LLMs",
+    "RAGs",
+    "SQL",
+    "HTML",
+    "CSS",
+    "Teamwork",
+    "Problem Solving",
+    "Adaptability",
+    "Management",
+    "Scrum",
+    "Agile"
+  ],
+  "projects": [
+    {
+      "title": "No LLM PDF Extractor",
+      "description": "Built a robust tool to parse unstructured documents and extract structured data without relying on large language models (LLMs). Extracts both tables and images from PDFs with high accuracy. Achieved 93% document coverage, ensuring comprehensive data retrieval."
+    },
+    {
+      "title": "Sales-Assist AI",
+      "description": "Designed an AI‑powered conversational assistant to enhance real‑time customer interactions. Uses LLMs and Retrieval‑Augmented Generation (RAG) to provide accurate, context‑aware responses."
+    }
+  ],
+  "certifications": [
+    {
+      "title": "Diploma in Programming and Data Science",
+      "issuer": "IIT Madras",
+      "year": 2024,
+      "link": "https://drive.google.com/file/d/1oCDGMThAiJ3DimG2itJzO42vVaLPL0rx/view?usp=sharing"
+    },
+    {
+      "title": "Introduction to Generative AI",
+      "issuer": "Google",
+      "year": 2024,
+      "link": "https://www.cloudskillsboost.google/public_profiles/92b5927b-a487-40a9-be89-71bf9c9db57c/badges/9503337"
+    },
+    {
+      "title": "Postman API Fundamental Student Expert",
+      "issuer": "Postman",
+      "year": 2023,
+      "link": "https://badgr.com/public/assertions/2FUSshuSQNaJqC5ic57Q-Q?identity__email=wadhwakushagra263@gmail.com"
+    }
+  ],
+  "languages": [],
+  "social_profiles": [
+    {
+      "platform": "LinkedIn",
+      "link": "https://www.linkedin.com/in/kushagra-wadhwa-864319229/"
+    },
+    {
+      "platform": "GitHub",
+      "link": "https://github.com/KushagraaWadhwa"
+    }
+  ]
+}
