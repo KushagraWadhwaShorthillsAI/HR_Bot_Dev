@@ -1,6 +1,38 @@
+/**
+ * ===================================================================================================
+ * HR RESUME ASSISTANT BOT
+ * ===================================================================================================
+ * 
+ * @fileoverview Microsoft Teams bot for HR recruitment and resume management
+ * @description AI-powered bot that helps HR professionals manage candidate resumes,
+ *             generate tailored documents, search through talent pools, and streamline
+ *             the recruitment process.
+ * 
+ * @version 2.0.0
+ * @author HR Bot Development Team
+ * @license MIT
+ * 
+ * Features:
+ * - Resume generation with/without job descriptions
+ * - Candidate search and management
+ * - Bulk resume upload and processing
+ * - OneDrive integration for file storage
+ * - Adaptive card UI for enhanced user experience
+ * 
+ * Dependencies:
+ * - @microsoft/agents-activity
+ * - @microsoft/agents-hosting
+ * - axios (for HTTP requests)
+ * - dotenv (for environment variables)
+ * 
+ * Environment Variables Required:
+ * - PRIMARY_NIFI_URL: Primary NIFI processor endpoint
+ * - FALLBACK_NIFI_URL: Fallback NIFI processor endpoint
+ * ===================================================================================================
+ */
+
 const axios = require("axios");
 const FormData = require("form-data");
-
 
 const { ActivityTypes } = require("@microsoft/agents-activity");
 const {
@@ -31,10 +63,30 @@ if (!PRIMARY_NIFI_URL || !FALLBACK_NIFI_URL) {
 }
 
 /**
- * Axios wrapper with fallback
- * @param {'get'|'post'} method 
- * @param {string} path 
- * @param {object} options { data, config }
+ * ===================================================================================================
+ * UTILITY FUNCTIONS
+ * ===================================================================================================
+ */
+
+/**
+ * Axios wrapper with automatic fallback to secondary endpoint
+ * Provides high availability by automatically switching to fallback URL if primary fails
+ * 
+ * @async
+ * @function axiosWithFallback
+ * @param {'get'|'post'} method - HTTP method to use
+ * @param {string} path - API endpoint path (e.g., '/search', '/add')
+ * @param {Object} options - Request options
+ * @param {Object} [options.data={}] - Request payload data
+ * @param {Object} [options.config={}] - Additional axios configuration
+ * @returns {Promise<Object>} Axios response object
+ * @throws {Error} If both primary and fallback endpoints fail
+ * 
+ * @example
+ * const response = await axiosWithFallback("post", "/search", {
+ *   data: { query: "software engineer" },
+ *   config: { timeout: 30000 }
+ * });
  */
 async function axiosWithFallback(method, path, { data = {}, config = {} } = {}) {
   const primaryUrl = `${PRIMARY_NIFI_URL}${path}`;
@@ -51,47 +103,265 @@ async function axiosWithFallback(method, path, { data = {}, config = {} } = {}) 
     }
   }
 }
+/**
+ * ===================================================================================================
+ * UI COMPONENT FUNCTIONS
+ * ===================================================================================================
+ */
+
+/**
+ * Sends an enhanced, beautiful welcome card to new users
+ * Displays a comprehensive introduction with feature highlights and quick action buttons
+ * 
+ * @async
+ * @function sendWelcomeCard
+ * @param {Object} context - The Teams bot context containing activity and sendActivity method
+ * @returns {Promise<void>}
+ * 
+ * @description
+ * Creates a visually appealing adaptive card that includes:
+ * - Branded header with bot name and tagline
+ * - Feature overview with colored containers
+ * - Complete command reference
+ * - Quick action buttons for common tasks
+ */
 async function sendWelcomeCard(context) {
   const card = {
     type: "AdaptiveCard",
     version: "1.4",
     body: [
       {
-        type: "TextBlock",
-        text: "👋 Welcome to the HR Bot!",
-        size: "ExtraLarge",
-        weight: "Bolder",
-        color: "Accent",
-        horizontalAlignment: "center",
-        wrap: true
+        type: "Container",
+        style: "emphasis",
+        bleed: true,
+        items: [
+          {
+            type: "ColumnSet",
+            columns: [
+              {
+                type: "Column",
+                width: "stretch",
+                items: [
+                  {
+                    type: "TextBlock",
+                    text: "🎯 HR Resume Assistant",
+                    size: "ExtraLarge",
+                    weight: "Bolder",
+                    color: "Default",
+                    horizontalAlignment: "Center"
+                  },
+                  {
+                    type: "TextBlock",
+                    text: "Your AI-powered recruitment companion",
+                    size: "Medium",
+                    color: "Default",
+                    horizontalAlignment: "Center",
+                    isSubtle: true
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       {
-        type: "TextBlock",
-        text: "Here are some things I can do for you:",
-        size: "Medium",
-        weight: "Bolder",
-        wrap: true,
-        spacing: "Medium"
+        type: "Container",
+        spacing: "Large",
+        items: [
+          {
+            type: "TextBlock",
+            text: "👋 Welcome! I'm here to streamline your recruitment process",
+            size: "Large",
+            weight: "Bolder",
+            wrap: true
+          },
+          {
+            type: "TextBlock",
+            text: "I can help you manage candidate resumes, generate tailored documents, and search through your talent pool efficiently.",
+            wrap: true,
+            spacing: "Small"
+          }
+        ]
       },
       {
-        type: "FactSet",
-        facts: [
-          { title: "/makeresume", value: "Generate a resume for a candidate (with or without job description)." },
-          { title: "/search", value: "Search for candidates by name, skill, or keyword." },
-          { title: "/view", value: "View a candidate's resume by employee ID or name." },
-          { title: "/delete", value: "Delete a candidate by employee ID or name." },
-          { title: "/uploadfolder", value: "Upload folder onedrive link containing resumes" },
-          { title: "/add", value: "Add a SharePoint resume link for a candidate." }
+        type: "Container",
+        spacing: "Large",
+        separator: true,
+        items: [
+          {
+            type: "TextBlock",
+            text: "🚀 **What I can do for you**",
+            size: "Medium",
+            weight: "Bolder",
+            color: "Accent"
+          },
+          {
+            type: "ColumnSet",
+            spacing: "Medium",
+            columns: [
+              {
+                type: "Column",
+                width: "stretch",
+                items: [
+                  {
+                    type: "Container",
+                    style: "good",
+                    items: [
+                      {
+                        type: "TextBlock",
+                        text: "📄 **Resume Generation**",
+                        weight: "Bolder",
+                        size: "Medium"
+                      },
+                      {
+                        type: "TextBlock",
+                        text: "Create professional resumes with or without job descriptions",
+                        wrap: true,
+                        size: "Small"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                type: "Column",
+                width: "stretch",
+                items: [
+                  {
+                    type: "Container",
+                    style: "attention",
+                    items: [
+                      {
+                        type: "TextBlock",
+                        text: "🔍 **Smart Search**",
+                        weight: "Bolder",
+                        size: "Medium"
+                      },
+                      {
+                        type: "TextBlock",
+                        text: "Find candidates by skills, experience, or keywords",
+                        wrap: true,
+                        size: "Small"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            type: "ColumnSet",
+            spacing: "Medium",
+            columns: [
+              {
+                type: "Column",
+                width: "stretch",
+                items: [
+                  {
+                    type: "Container",
+                    style: "accent",
+                    items: [
+                      {
+                        type: "TextBlock",
+                        text: "📁 **Bulk Operations**",
+                        weight: "Bolder",
+                        size: "Medium"
+                      },
+                      {
+                        type: "TextBlock",
+                        text: "Upload and process multiple resumes at once",
+                        wrap: true,
+                        size: "Small"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                type: "Column",
+                width: "stretch",
+                items: [
+                  {
+                    type: "Container",
+                    style: "warning",
+                    items: [
+                      {
+                        type: "TextBlock",
+                        text: "👥 **Candidate Management**",
+                        weight: "Bolder",
+                        size: "Medium"
+                      },
+                      {
+                        type: "TextBlock",
+                        text: "View, add, or remove candidates easily",
+                        wrap: true,
+                        size: "Small"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        type: "Container",
+        spacing: "Large",
+        separator: true,
+        items: [
+          {
+            type: "TextBlock",
+            text: "📌 **Available Commands**",
+            size: "Medium",
+            weight: "Bolder",
+            spacing: "Small"
+          },
+          {
+            type: "FactSet",
+            facts: [
+              { title: "📄 /makeresume", value: "Generate tailored resumes" },
+              { title: "🔄 /generate", value: "Create resume from OneDrive" },
+              { title: "🔍 /search", value: "Find candidates quickly" },
+              { title: "👁️ /view", value: "View candidate profiles" },
+              { title: "➕ /add", value: "Add new candidates" },
+              { title: "🗑️ /delete", value: "Remove candidates" },
+              { title: "📁 /uploadfolder", value: "Bulk upload resumes" }
+            ]
+          }
         ]
       },
       {
         type: "TextBlock",
-        text: "Quick Actions:",
+        text: "**Get started with quick actions below:**",
         size: "Medium",
         weight: "Bolder",
         spacing: "Large"
       }
-      // Quick action buttons removed from Adaptive Card
+    ],
+    actions: [
+      {
+        type: "Action.Submit",
+        title: "📄 Make Resume",
+        style: "positive",
+        data: { msteams: { type: "messageBack", text: "/makeresume", displayText: "/makeresume" } }
+      },
+      {
+        type: "Action.Submit",
+        title: "🔍 Search Candidates",
+        style: "positive",
+        data: { msteams: { type: "messageBack", text: "/search", displayText: "/search" } }
+      },
+      {
+        type: "Action.Submit",
+        title: "➕ Add Candidate",
+        data: { msteams: { type: "messageBack", text: "/add", displayText: "/add" } }
+      },
+      {
+        type: "Action.Submit",
+        title: "❓ Get Help",
+        data: { msteams: { type: "messageBack", text: "/help", displayText: "/help" } }
+      }
     ],
     $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
   };
@@ -105,52 +375,79 @@ async function sendWelcomeCard(context) {
       }
     ]
   });
-
-  // Send suggested actions (these fill the compose box, not send immediately)
-  await context.sendActivity({
-    type: "message",
-    text: "Here are some quick actions you can try:",
-    suggestedActions: {
-      actions: [
-        { type: "imBack", title: "/makeresume", value: "/makeresume" },
-        { type: "imBack", title: "/search", value: "/search" },
-        { type: "imBack", title: "/add", value: "/add" },
-        { type: "imBack", title: "/view", value: "/view" },
-        { type: "imBack", title: "/delete", value: "/delete" },
-        { type: "imBack", title: "/uploadfolder", value: "/uploadfolder" },
-        { type: "imBack", title: "/help", value: "/help" }
-      ],
-      to: [context.activity.from.id]
-    }
-  });
 }
-// Listen for user to say '/reset' and then delete conversation state
-teamsBot.message("/reset", async (context, state) => {
-  state.deleteConversationState();
-  await context.sendActivity("Ok I've deleted the current conversation state.");
-});
 
-// Test command to check environment and connectivity
-teamsBot.message("/test", async (context, state) => {
+/**
+ * Fetches and displays candidate profile as a fallback when resume generation fails
+ * Used when /makeresume or /generate commands can't produce a resume but need to show candidate info
+ * 
+ * @async
+ * @function fetchAndDisplayViewCard
+ * @param {Object} context - The Teams bot context for sending activities
+ * @param {string} identifier_type - Type of identifier ('name' or 'employee_id')
+ * @param {string} identifier - The actual identifier value
+ * @returns {Promise<void>}
+ * 
+ * @description
+ * Fallback mechanism that:
+ * - Calls the /view endpoint to fetch candidate data
+ * - Handles JSON parsing and validation
+ * - Displays candidate profile using displayResumeCard
+ * - Provides detailed error messages if candidate not found
+ */
+async function fetchAndDisplayViewCard(context, identifier_type, identifier) {
   try {
-    // Test basic connectivity
-    const testResponse = await axiosWithFallback("get", "/", {
-      config: { timeout: 5000 }
+    await context.sendActivity('🔍 Fetching candidate profile...');
+
+    const payload = { identifier_type, identifier };
+    const response = await axiosWithFallback("post", "/view", {
+      data: payload,
+      config: {
+        headers: { "Content-Type": "application/json" },
+        timeout: 20000
+      }
     });
-    await context.sendActivity(`✅ NIFI processor is reachable. Status: ${testResponse.status}`);
+    let resumeData = response.data;
+    if (typeof resumeData === "string") {
+      try {
+        resumeData = JSON.parse(resumeData);
+      } catch (e) {
+        await context.sendActivity(`❌ Could not parse resume data. Raw response: \n\n\`${resumeData}\``);
+        return;
+      }
+    }
+    if (!resumeData || (!resumeData.name && !resumeData.skills && !resumeData.experience)) {
+      await context.sendActivity("❌ Candidate not found in database.");
+      return;
+    }
+    await context.sendActivity('✅ Found candidate! Displaying resume...');
+    await displayResumeCard(context, resumeData);
   } catch (err) {
-    await context.sendActivity(`❌ NIFI processor connectivity test failed: ${err.message}`);
+    let errMsg = err.response?.data || err.message;
+    if (typeof errMsg === "object") {
+      errMsg = JSON.stringify(errMsg, null, 2);
+    }
+    await context.sendActivity(`❌ Error while searching for candidate as fallback: \n\n\`${errMsg}\``);
   }
-  // Test Graph API connectivity
-  try {
-    const graphToken = await getGraphToken();
-    await context.sendActivity(`✅ Graph API token obtained successfully`);
-  } catch (err) {
-    await context.sendActivity(`❌ Graph API token failed: ${err.message}`);
-  }
-});
+}
 
-
+/**
+ * Displays search results as interactive candidate cards
+ * Creates adaptive cards for each candidate with score-based color coding and action buttons
+ * 
+ * @async
+ * @function sendCandidateCards
+ * @param {Array} results - Array of candidate objects from search results
+ * @param {Object} context - The Teams bot context for sending activities
+ * @returns {Promise<void>}
+ * 
+ * @description
+ * Features:
+ * - Limits display to top 20 results for performance
+ * - Color-coded scores (green: >90%, yellow: 70-90%, red: <70%)
+ * - Interactive buttons for view and delete actions
+ * - Responsive design with proper spacing and formatting
+ */
 async function sendCandidateCards(results, context) {
   const topResults = results.slice(0, 20);
 
@@ -198,6 +495,16 @@ async function sendCandidateCards(results, context) {
               text: `/view ${empId}`
             }
           }
+        },
+        {
+          type: "Action.Submit",
+          title: "🗑️ Delete Candidate",
+          data: {
+            msteams: {
+              type: "messageBack",
+              text: `/delete ${empId}`
+            }
+          }
         }
       ],
       $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
@@ -215,47 +522,30 @@ async function sendCandidateCards(results, context) {
   }
 }
 
-
-teamsBot.message(/^(hi|hello|hey|\/help)$/i, async (context, state) => {
-  await sendWelcomeCard(context);
-});
-
-// --- /search Command ---
-teamsBot.message(/^\/search\s+(.*)/i, async (context, state) => {
-  const query = context.activity.text.replace(/^\/search\s+/i, "").trim();
-
-  if (!query) {
-    await context.sendActivity("❗ Please provide a query after `/search`.");
-    return;
-  }
-
-  try {
-    const response = await axiosWithFallback("post", "/search", {
-      data: { query },
-      config: {
-        headers: { "Content-Type": "application/json" },
-        timeout: 60000
-      }
-    });
-
-    const result = response.data;
-
-    // if (!result || !result.results || result.results.length === 0) {
-    //   await context.sendActivity("⚠️ No candidates found.");
-    //   return;
-    // }
-    console.log("🔍 Found candidates:", result.length);
-    await sendCandidateCards(result, context);
-
-  } catch (error) {
-    const errMsg = error.response?.data || error.message;
-    await context.sendActivity(`❌ Search Candidates Error:\n\
-\  ${errMsg}\  `);
-  }
-});
-
-
-// Helper function to display resume card
+/**
+ * Displays candidate resume data in a comprehensive adaptive card format
+ * Creates a well-structured card showing all available candidate information
+ * 
+ * @async
+ * @function displayResumeCard
+ * @param {Object} context - The Teams bot context for sending activities
+ * @param {Object} fallbackData - Candidate resume data object
+ * @returns {Promise<void>}
+ * 
+ * @description
+ * Dynamically builds an adaptive card with the following sections:
+ * - Header with candidate name
+ * - Contact information (title, email, phone, location)
+ * - Professional summary
+ * - Technical skills (comma-separated)
+ * - Work experience (company, duration, description)
+ * - Education (degree, institution, year)
+ * - Projects (title, description)
+ * - Certifications (title, issuer, year)
+ * - Social profiles (platform, link)
+ * 
+ * Only displays sections that have data, ensuring clean presentation
+ */
 async function displayResumeCard(context, fallbackData) {
   // Build card body with sections
   const cardBody = [];
@@ -569,7 +859,123 @@ async function displayResumeCard(context, fallbackData) {
         });
   }
 
+/**
+ * ===================================================================================================
+ * COMMAND HANDLERS
+ * ===================================================================================================
+ */
+
+/**
+ * Resets the conversation state for the current user
+ * Clears all stored conversation data and starts fresh
+ * 
+ * @command /reset
+ * @description Development and debugging command to clear conversation state
+ * @usage /reset
+ */
+teamsBot.message("/reset", async (context, state) => {
+  state.deleteConversationState();
+  await context.sendActivity("✅ Conversation state has been reset successfully.");
+});
+
+/**
+ * Tests system connectivity and environment configuration
+ * Verifies both NIFI processor and Graph API connectivity
+ * 
+ * @command /test
+ * @description Development and troubleshooting command to verify system health
+ * @usage /test
+ */
+teamsBot.message("/test", async (context, state) => {
+  try {
+    // Test basic connectivity
+    const testResponse = await axiosWithFallback("get", "/", {
+      config: { timeout: 5000 }
+    });
+    await context.sendActivity(`✅ NIFI processor is reachable. Status: ${testResponse.status}`);
+  } catch (err) {
+    await context.sendActivity(`❌ NIFI processor connectivity test failed: ${err.message}`);
+  }
+  // Test Graph API connectivity
+  try {
+    const graphToken = await getGraphToken();
+    await context.sendActivity(`✅ Graph API token obtained successfully`);
+  } catch (err) {
+    await context.sendActivity(`❌ Graph API token failed: ${err.message}`);
+  }
+});
+
+
+/**
+ * Displays the welcome card with bot introduction and available commands
+ * Handles various greeting messages and help requests
+ * 
+ * @command /help, hi, hello, hey
+ * @description Shows comprehensive bot introduction and command reference
+ * @usage /help, hi, hello, hey
+ */
+teamsBot.message(/^(hi|hello|hey|\/help)$/i, async (context, state) => {
+  await sendWelcomeCard(context);
+});
+
+/**
+ * Searches for candidates in the database using various criteria
+ * Supports searching by name, skills, keywords, or any text content
+ * 
+ * @command /search
+ * @description Searches candidate database and displays matching results
+ * @usage /search <query>
+ * @example /search software engineer
+ * @example /search Python JavaScript
+ * @example /search John Smith
+ */
+teamsBot.message(/^\/search\s+(.*)/i, async (context, state) => {
+  const query = context.activity.text.replace(/^\/search\s+/i, "").trim();
+
+  if (!query) {
+    await context.sendActivity("❗ Please provide a query after `/search`.");
+    return;
+  }
+
+  try {
+    const response = await axiosWithFallback("post", "/search", {
+      data: { query },
+      config: {
+        headers: { "Content-Type": "application/json" },
+        timeout: 60000
+      }
+    });
+
+    const result = response.data;
+
+    // if (!result || !result.results || result.results.length === 0) {
+    //   await context.sendActivity("⚠️ No candidates found.");
+    //   return;
+    // }
+    console.log("🔍 Found candidates:", result.length);
+    await sendCandidateCards(result, context);
+
+  } catch (error) {
+    const errMsg = error.response?.data || error.message;
+    await context.sendActivity(`❌ Search Candidates Error:\n\
+\  ${errMsg}\  `);
+  }
+});
+
+
 const { getGraphToken } = require("./utils/graphToken");
+
+/**
+ * Generates tailored resumes for candidates with optional job description matching
+ * Creates professional Word documents that can be uploaded to OneDrive
+ * 
+ * @command /makeresume
+ * @description Generates customized resumes for candidates
+ * @usage /makeresume <identifier> [jd "job description"]
+ * @example /makeresume 12345
+ * @example /makeresume John Doe jd "Software Engineer with 5+ years experience"
+ * @example /makeresume jd "Data Scientist with Python and ML skills"
+ */
 teamsBot.message("/makeresume", async (context, state) => {
 
 
@@ -977,7 +1383,24 @@ teamsBot.message("/makeresume", async (context, state) => {
 
 });
 
-// Helper: Send a simple candidate card for JD-only /makeresume
+/**
+ * Sends a simplified candidate card for job description-only resume generation
+ * Used when /makeresume is called with only a job description to show matching candidates
+ * 
+ * @async
+ * @function sendSimpleCandidateCard
+ * @param {Object} context - The Teams bot context for sending activities
+ * @param {Object} candidate - Candidate object with name, employee_id, score, keywords
+ * @param {string} jobDescription - The job description used for matching
+ * @returns {Promise<void>}
+ * 
+ * @description
+ * Creates a compact card showing:
+ * - Candidate name and employee ID
+ * - Match score percentage
+ * - Relevant keywords
+ * - Quick action to generate tailored resume for this candidate
+ */
 async function sendSimpleCandidateCard(context, candidate, jobDescription) {
         const card = {
           type: "AdaptiveCard",
@@ -1030,7 +1453,17 @@ async function sendSimpleCandidateCard(context, candidate, jobDescription) {
         });
 }
 
-// Enhanced /view command: supports employee ID or name
+/**
+ * Displays candidate resume information in a formatted card
+ * Supports searching by employee ID or candidate name
+ * 
+ * @command /view
+ * @description Shows detailed candidate profile and resume information
+ * @usage /view <identifier>
+ * @example /view 12345
+ * @example /view John Doe
+ * @example /view name John Smith
+ */
 teamsBot.message(/^\/view(?:\s+(.*))?$/i, async (context, state) => {
 
   const text = context.activity.text;
@@ -1141,9 +1574,17 @@ teamsBot.message(/^\/view(?:\s+(.*))?$/i, async (context, state) => {
 });
 
 
-
-
-// Enhanced /delete command: supports employee ID or name
+/**
+ * Removes candidates from the database
+ * Supports deletion by employee ID or candidate name
+ * 
+ * @command /delete
+ * @description Permanently removes candidate records from the database
+ * @usage /delete <identifier>
+ * @example /delete 12345
+ * @example /delete John Doe
+ * @example /delete name John Smith
+ */
 teamsBot.message(/^\/delete(?:\s+(.*))?$/i, async (context, state) => {
   const args = context.activity.text.replace(/^\/delete\s*/i, "").trim();
 
@@ -1189,48 +1630,99 @@ teamsBot.message(/^\/delete(?:\s+(.*))?$/i, async (context, state) => {
   }
 });
 
+/**
+ * Get the onedrive resume link of the candidate
+ * 
+ * @command /add
+ * @description Adds new candidates with their resume links
+ * @usage /add (shows form) OR /add <employee_id> (legacy flow)
+ * @example /add (opens form with employee ID and SharePoint link fields)
+ * @example /add 12345 (legacy: prompts for SharePoint link)
+ */
+teamsBot.message(/^\/add$/i, async (context, state) => {
+  try {
+    // Check if there's an employee ID provided in the command (for backward compatibility)
+    const parts = context.activity.text.trim().split(" ");
+    const employeeId = parts[1];
 
+    if (employeeId) {
+      // Legacy flow: if employee ID is provided, use the old conversation flow
+      state.conversation.awaitingLink = true;
+      state.conversation.addEmployeeId = employeeId;
+      await context.sendActivity(`Please enter the SharePoint resume link for employee ID *${employeeId}*.`);
+      return;
+    }
 
-teamsBot.message("/add", async (context, state) => {
-   
-  // Show spinner card
-  await context.sendActivity({
-    type: "message",
-    attachments: [
-      {
-        contentType: "application/vnd.microsoft.card.adaptive",
-        content: {
-          type: "AdaptiveCard",
-          version: "1.4",
-          body: [
-            {
-              type: "TextBlock",
-              text: "⏳ Processing your request, please wait...",
-              size: "Medium",
-              weight: "Bolder",
-              color: "Accent",
-              wrap: true
-            }
-          ],
-          $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
+    // New flow: show adaptive card form
+    const card = {
+      type: "AdaptiveCard",
+      $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+      version: "1.4",
+      body: [
+        {
+          type: "TextBlock",
+          text: "➕ Add New Candidate",
+          size: "Large",
+          weight: "Bolder",
+          color: "Accent"
+        },
+        {
+          type: "TextBlock",
+          text: "Please provide the employee ID and SharePoint resume link.",
+          wrap: true,
+          spacing: "Medium"
+        },
+        {
+          type: "Input.Text",
+          id: "employeeId",
+          label: "Employee ID",
+          placeholder: "Enter employee ID (e.g., 12345)",
+          isRequired: true,
+          errorMessage: "Employee ID is required.",
+          regex: "^[0-9]+$",
+        },
+        {
+          type: "Input.Text",
+          id: "resumeLink",
+          label: "SharePoint Resume Link",
+          placeholder: "Paste your SharePoint link here",
+          isMultiline: false,
+          style: "Url",
+          isRequired: true,
+          errorMessage: "A valid SharePoint link is required.",
         }
-      }
-    ]
-  });
-  const parts = context.activity.text.trim().split(" ");
-  const employeeId = parts[1];
+      ],
+      actions: [
+        {
+          type: "Action.Submit",
+          title: "Add Candidate",
+          style: "positive",
+          data: {
+            action: "addCandidateFromCard" // Unique identifier for our message handler
+          }
+        }
+      ]
+    };
 
-  if (!employeeId) {
-    await context.sendActivity("How to use?: `/add <employee_id>`");
-    return;
+    await context.sendActivity({
+      type: "message",
+      attachments: [ { contentType: "application/vnd.microsoft.card.adaptive", content: card } ]
+    });
+  } catch (error) {
+    console.error("[/add] Error sending adaptive card:", error);
+    await context.sendActivity("❌ Error creating the input form. Please try again.");
   }
-
-  state.conversation.awaitingLink = true;
-  state.conversation.addEmployeeId = employeeId;
-  await context.sendActivity(`Please enter the SharePoint resume link for employee ID *${employeeId}*.`);
-
 });
 
+/**
+ * Bulk uploads resumes from a SharePoint folder
+ * Processes multiple resume files in a single operation
+ * 
+ * @command /uploadfolder
+ * @description Uploads and processes multiple resumes from a SharePoint folder
+ * @usage /uploadfolder <sharepoint_folder_link>
+ * @example /uploadfolder https://company.sharepoint.com/sites/hr/Shared%20Documents/Resumes
+ */
 teamsBot.message(/^\/uploadfolder(\s|$)/, async (context, state) => {
    
   console.log("[BOT] /uploadfolder triggered:", context.activity.text);
@@ -1276,7 +1768,7 @@ teamsBot.message(/^\/uploadfolder(\s|$)/, async (context, state) => {
         body: [
           {
             type: "TextBlock",
-            text: "📂 Uploading resumes from the SharePoint folder. Please wait...",
+            text: "📂 Uploading resumes... Please wait...",
             size: "Large",
             weight: "Bolder",
             color: "Accent",
@@ -1357,146 +1849,192 @@ teamsBot.message(/^\/uploadfolder(\s|$)/, async (context, state) => {
 
 });
 
-async function sendUnknownMessageWithCommands(context) {
-  const card = {
-    type: "AdaptiveCard",
-    version: "1.4",
-    body: [
-      {
-        type: "TextBlock",
-        text: "❓ Sorry, I couldn't understand your message.",
-        size: "Large",
-        weight: "Bolder",
-        color: "Attention",
-        wrap: true
-      },
-      {
-        type: "TextBlock",
-        text: "Please choose one of the available commands below:",
-        size: "Medium",
-        weight: "Bolder",
-        wrap: true,
-        spacing: "Medium"
-      },
-      {
-        type: "FactSet",
-        facts: [
-          { title: "/makeresume", value: "Generate a resume for a candidate (with or without job description)." },
-          { title: "/search", value: "Search for candidates using a query" },
-          { title: "/view", value: "View a candidate's resume by employee ID or name." },
-          { title: "/delete", value: "Delete a candidate by employee ID or name." },
-          { title: "/uploadfolder", value: "Upload onedrive folder containing resumes" },
-          { title: "/add", value: "Add a SharePoint resume link for a candidate." }
-        ]
-      },
-      {
-        type: "TextBlock",
-        text: "Quick Actions:",
-        size: "Medium",
-        weight: "Bolder",
-        spacing: "Large"
-      }
-    ],
-    actions: [
-      {
-        type: "Action.Submit",
-        title: "/makeresume",
-        data: { msteams: { type: "messageBack", text: "/makeresume", displayText: "/makeresume" } }
-      },
-      {
-        type: "Action.Submit",
-        title: "/search",
-        data: { msteams: { type: "messageBack", text: "/search", displayText: "/search"  } }
-      },
-      {
-        type: "Action.Submit",
-        title: "/view",
-        data: { msteams: { type: "messageBack", text: "/view", displayText: "/view"   } }
-      },
-      {
-        type: "Action.Submit",
-        title: "/delete",
-        data: { msteams: { type: "messageBack", text: "/delete",displayText: "/delete"   } }
-      },
-      {
-        type: "Action.Submit",
-        title: "/uploadfolder",
-        data: { msteams: { type: "messageBack", text: "/uploafolder",displayText: "/uploadfolder"   } }
-      },
-      {
-        type: "Action.Submit",
-        title: "/add",
-        data: { msteams: { type: "messageBack", text: "/add",displayText: "/add" } }
-      },
-      {
-        type: "Action.Submit",
-        title: "/help",
-        data: { msteams: { type: "messageBack", text: "/help",displayText:"/help" } }
-      }
-    ],
-    $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
-  };
 
-  await context.sendActivity({
-    type: "message",
-    attachments: [
-      {
-        contentType: "application/vnd.microsoft.card.adaptive",
-        content: card
-      }
-    ]
-  });
-}
-
-
-teamsBot.activity(ActivityTypes.Message, async (context, state) => {
-  const text = context.activity.text?.trim();
-
-  // Step 2: Handle resume link input
-  if (state.conversation.awaitingLink) {
-    // Try to extract from text first
-    const urlRegex = /@?(https?:\/\/[^\s<>"]+)/i;
-    let link = null;
-    if (text) {
-      const match = text.match(urlRegex);
-      link = match && match[1] ? match[1].trim() : null;
-    }
-    // If not found in text, check attachments
-    if (!link && context.activity.attachments && context.activity.attachments.length > 0) {
-      const attachment = context.activity.attachments[0];
-      // Case 1: contentUrl (for some file types)
-      if (attachment.contentUrl && attachment.contentUrl.includes('sharepoint.com')) {
-        link = attachment.contentUrl;
-      }
-      // Case 2: HTML content with <a href="...">
-      else if (
-        attachment.contentType === 'text/html' &&
-        typeof attachment.content === 'string'
-      ) {
-        // Extract href from <a ...> in HTML
-        const hrefMatch = attachment.content.match(/href="([^"]+)"/i);
-        if (hrefMatch && hrefMatch[1] && hrefMatch[1].includes('sharepoint.com')) {
-          link = hrefMatch[1];
+/**
+ * Generates resumes from OneDrive links with form-based input
+ * Creates professional Word documents that can be uploaded to OneDrive
+ * 
+ * @command /generate
+ * @description Generates resumes from OneDrive links using form interface
+ * @usage /generate (shows form with employee ID and OneDrive link fields)
+ * @example /generate (opens form to input employee ID and OneDrive resume link)
+ */
+teamsBot.message(/^\/generate$/i, async (context, state) => {
+  try {
+    const card = {
+      type: "AdaptiveCard",
+      $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+      version: "1.4",
+      body: [
+        {
+          type: "TextBlock",
+          text: "📄 Generate Resume from OneDrive",
+          size: "Large",
+          weight: "Bolder",
+          color: "Accent"
+        },
+        {
+          type: "TextBlock",
+          text: "Please provide the employee ID and the full OneDrive resume link.",
+          wrap: true,
+          spacing: "Medium"
+        },
+        {
+          type: "Input.Text",
+          id: "employeeId",
+          label: "Employee ID",
+          placeholder: "Enter employee ID (e.g., 12345)",
+          isRequired: true,
+          errorMessage: "Employee ID is required.",
+          regex: "^[0-9]+$",
+        },
+        {
+          type: "Input.Text",
+          id: "resumeLink",
+          label: "OneDrive Resume Link",
+          placeholder: "Paste your OneDrive link here",
+          isMultiline: false,
+          style: "Url",
+          isRequired: true,
+          errorMessage: "A valid OneDrive link is required.",
         }
+      ],
+      actions: [
+        {
+          type: "Action.Submit",
+          title: "Generate Resume",
+          style: "positive",
+          data: {
+            action: "generateResumeFromCard" // Unique identifier for our message handler
+          }
+        }
+      ]
+    };
+
+    await context.sendActivity({
+      type: "message",
+      attachments: [ { contentType: "application/vnd.microsoft.card.adaptive", content: card } ]
+    });
+  } catch (error) {
+    console.error("[/generate] Error sending adaptive card:", error);
+    await context.sendActivity("❌ Error creating the input form. Please try again.");
+  }
+});
+
+/**
+ * ===================================================================================================
+ * UNIFIED MESSAGE ACTIVITY HANDLER
+ * ===================================================================================================
+ * This is the main message handler that processes all incoming messages and card submissions.
+ * It handles:
+ * - Adaptive card form submissions (from /generate and /add commands)
+ * - Legacy conversation flows (for backward compatibility)
+ * - Unknown message handling with helpful suggestions
+ * ===================================================================================================
+ */
+teamsBot.activity(ActivityTypes.Message, async (context, state) => {
+
+  // -------------------------------------------------------------------------
+  // PART 1: Handle card submission from the /generate command
+  // -------------------------------------------------------------------------
+  if (context.activity.value?.action === 'generateResumeFromCard') {
+    const employeeId = context.activity.value.employeeId?.trim();
+    const resumeLink = context.activity.value.resumeLink?.trim();
+
+    if (!employeeId || !resumeLink) {
+      await context.sendActivity("⚠️ Both Employee ID and OneDrive link are required.");
+      return;
+    }
+
+    try {
+      await context.sendActivity('⏳ Generating resume from OneDrive link...');
+      await context.sendActivity({ type: 'typing' });
+
+      const payload = { employee_id: employeeId, resume_link: resumeLink };
+      console.log(`[/generate] Sending payload to /generate endpoint:`, payload);
+
+      const response = await axiosWithFallback("post", "/generate", {
+        data: payload,
+        config: {
+          responseType: "arraybuffer",
+          headers: { "Content-Type": "application/json" },
+          timeout: 600000
+        }
+      });
+
+      if (response.data && response.data.byteLength > 0) {
+        const buffer = Buffer.from(response.data);
+        const isWordDoc = buffer.slice(0, 2).toString() === 'PK';
+
+        if (isWordDoc) {
+          console.log(`[/generate] Received valid Word document, size: ${(buffer.length / 1024).toFixed(2)} KB`);
+          const filename = `Resume_Generated_${employeeId}_${Date.now()}.docx`;
+
+          state.conversation.pendingWordBuffer = buffer.toString('base64');
+          state.conversation.pendingWordFilename = filename;
+          state.conversation.pendingWordSize = buffer.length;
+          console.log(`[/generate] Saved pending file to state for user consent.`);
+
+          if (context.activity.conversation.conversationType === 'personal') {
+            await context.sendActivity({
+              type: "message",
+              attachments: [
+                {
+                  contentType: "application/vnd.microsoft.teams.card.file.consent",
+                  name: filename,
+                  content: {
+                    description: `Resume for Employee ID ${employeeId}`,
+                    sizeInBytes: buffer.length,
+                    acceptContext: { resume: true },
+                    declineContext: { resume: true }
+                  }
+                }
+              ]
+            });
+            await context.sendActivity('✅ Resume generated! Please accept the prompt to save the file.');
+          } else {
+            await context.sendActivity("⚠️ Resume generation is only available in personal chat. The file was created but cannot be uploaded here.");
+          }
+        } else {
+          const responseText = buffer.toString('utf8');
+          console.warn('[/generate] API returned a non-DOCX response:', responseText);
+          await context.sendActivity(`❌ Failed to generate a valid document. The server responded with: \n\n\`${responseText}\``);
+        }
+      } else {
+        console.error("[/generate] Empty response received from the server.");
+        throw new Error("Empty response received from the server.");
       }
+    } catch (err) {
+      console.error('[ERROR] /generate card submission failed:', err);
+      let errorMessage = err.message;
+      if (err.response?.data) {
+        errorMessage = Buffer.from(err.response.data).toString('utf8');
+      }
+      await context.sendActivity(`❌ An error occurred while generating the resume: ${errorMessage}`);
     }
-    if (link && link.includes('sharepoint.com')) {
-      state.conversation.resumeLink = link;
-      state.conversation.awaitingConfirmation = true;
-      state.conversation.awaitingLink = false;
-      await context.sendActivity(
-        `You entered:\n\n- **Employee ID:** ${state.conversation.addEmployeeId}\n- **Resume Link:** ${link}\n\nType **yes** to confirm or **no** to cancel.`
-      );
-    } else {
-      await context.sendActivity("❗ Please paste a valid SharePoint link.");
-    }
-    return;
+    return; // Stop processing after handling the card action
   }
 
-  // Step 3: Handle confirmation
-  if (state.conversation.awaitingConfirmation) {
-    if (text.toLowerCase() === "yes") {
-      // Show spinner card for uploading
+  // -------------------------------------------------------------------------
+  // PART 2: Handle card submission from the /add command
+  // -------------------------------------------------------------------------
+  if (context.activity.value?.action === 'addCandidateFromCard') {
+    const employeeId = context.activity.value.employeeId?.trim();
+    const resumeLink = context.activity.value.resumeLink?.trim();
+
+    if (!employeeId || !resumeLink) {
+      await context.sendActivity("⚠️ Both Employee ID and SharePoint link are required.");
+      return;
+    }
+
+    // Validate SharePoint link
+    if (!resumeLink.includes('sharepoint.com')) {
+      await context.sendActivity("❗ Please provide a valid SharePoint link.");
+      return;
+    }
+
+    try {
+      // Show uploading card
       await context.sendActivity({
         type: "message",
         attachments: [
@@ -1520,23 +2058,175 @@ teamsBot.activity(ActivityTypes.Message, async (context, state) => {
           }
         ]
       });
-      // Call API
+
+      const payload = {
+        employee_id: employeeId,
+        resume_link: resumeLink,
+      };
+
+      const response = await axiosWithFallback("post", "/add", {
+        data: payload,
+        config: { headers: { "Content-Type": "application/json" } }
+      });
+
+      await context.sendActivity({
+        type: "message",
+        attachments: [
+          {
+            contentType: "application/vnd.microsoft.card.adaptive",
+            content: {
+              type: "AdaptiveCard",
+              version: "1.4",
+              body: [
+                {
+                  type: "TextBlock",
+                  text: "✅ Candidate Added Successfully!",
+                  size: "ExtraLarge",
+                  weight: "Bolder",
+                  color: "Good",
+                  wrap: true,
+                  horizontalAlignment: "Center",
+                  spacing: "Large"
+                },
+              ],
+              actions: [
+                {
+                  type: "Action.Submit",
+                  title: "👁️ View Resume",
+                  data: {
+                    employee_id: employeeId,
+                    msteams: {
+                      type: "messageBack",
+                      text: `/view ${employeeId}`
+                    }
+                  }
+                }
+              ],
+              $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
+            }
+          }
+        ]
+      });
+    } catch (error) {
+      await context.sendActivity({
+        type: "message",
+        attachments: [
+          {
+            contentType: "application/vnd.microsoft.card.adaptive",
+            content: {
+              type: "AdaptiveCard",
+              version: "1.4",
+              body: [
+                {
+                  type: "TextBlock",
+                  text: "❌ File Upload Failed",
+                  size: "Large",
+                  weight: "Bolder",
+                  color: "Attention",
+                  wrap: true
+                },
+                {
+                  type: "TextBlock",
+                  text: error.message || "Unknown error",
+                  wrap: true
+                },
+                {
+                  type: "TextBlock",
+                  text: "Please try again later or contact support if the issue persists.",
+                  wrap: true,
+                  spacing: "Small"
+                }
+              ],
+              $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
+            }
+          }
+        ]
+      });
+    }
+    return; // Stop processing after handling the card action
+  }
+
+
+  // -------------------------------------------------------------------------
+  // PART 3: Legacy conversation flow for /add command (backward compatibility)
+  // This handles the multi-step conversation flow where users:
+  // 1. Type /add <employee_id>
+  // 2. Paste the SharePoint link
+  // 3. Confirm with yes/no
+  // -------------------------------------------------------------------------
+  const text = context.activity.text?.trim();
+
+  // Handle resume link input for /add
+  if (state.conversation.awaitingLink) {
+    const urlRegex = /@?(https?:\/\/[^\s<>"]+)/i;
+    let link = null;
+    if (text) {
+      const match = text.match(urlRegex);
+      link = match && match[1] ? match[1].trim() : null;
+    }
+    if (!link && context.activity.attachments && context.activity.attachments.length > 0) {
+      const attachment = context.activity.attachments[0];
+      if (attachment.contentUrl && attachment.contentUrl.includes('sharepoint.com')) {
+        link = attachment.contentUrl;
+      }
+      else if (
+        attachment.contentType === 'text/html' &&
+        typeof attachment.content === 'string'
+      ) {
+        const hrefMatch = attachment.content.match(/href="([^"]+)"/i);
+        if (hrefMatch && hrefMatch[1] && hrefMatch[1].includes('sharepoint.com')) {
+          link = hrefMatch[1];
+        }
+      }
+    }
+    if (link && link.includes('sharepoint.com')) {
+      state.conversation.resumeLink = link;
+      state.conversation.awaitingConfirmation = true;
+      state.conversation.awaitingLink = false;
+      await context.sendActivity(
+        `You entered:\n\n- **Employee ID:** ${state.conversation.addEmployeeId}\n- **Resume Link:** ${link}\n\nType **yes** to confirm or **no** to cancel.`
+      );
+    } else {
+      await context.sendActivity("❗ Please paste a valid SharePoint link.");
+    }
+    return;
+  }
+
+  // Handle confirmation for /add
+  if (state.conversation.awaitingConfirmation) {
+    if (text.toLowerCase() === "yes") {
+      await context.sendActivity({
+        type: "message",
+        attachments: [
+          {
+            contentType: "application/vnd.microsoft.card.adaptive",
+            content: {
+              type: "AdaptiveCard",
+              version: "1.4",
+              body: [
+                {
+                  type: "TextBlock",
+                  text: "⏳ Uploading resume, please wait...",
+                  size: "Large",
+                  weight: "Bolder",
+                  color: "Accent",
+                  wrap: true
+                }
+              ],
+              $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
+            }
+          }
+        ]
+      });
       try {
         const payload = {
           employee_id: state.conversation.addEmployeeId,
           resume_link: state.conversation.resumeLink,
         };
-
-        // Log the payload being sent to NiFi
-
         const response = await axiosWithFallback("post", "/add", {
           data: payload,
           config: { headers: { "Content-Type": "application/json" } }
         });
-
-        const filteredData = { ...response.data };
-        delete filteredData.document_id;
-
         await context.sendActivity({
           type: "message",
           attachments: [
@@ -1576,7 +2266,6 @@ teamsBot.activity(ActivityTypes.Message, async (context, state) => {
             }
           ]
         });
-
       } catch (error) {
         await context.sendActivity({
           type: "message",
@@ -1616,23 +2305,299 @@ teamsBot.activity(ActivityTypes.Message, async (context, state) => {
     } else {
       await context.sendActivity("❌ Operation cancelled.");
     }
-
-    // Clear conversation state
     delete state.conversation.awaitingConfirmation;
     delete state.conversation.addEmployeeId;
     delete state.conversation.resumeLink;
   }
+
+  // -----------------------------------------------------------------------
 });
 
 
-// Helper: Send unknown message fallback with command list
-
-
-// -------------------------------------------------------------------------------
-// Activity Handlers
-
-// Handle file consent invoke activity for file upload
+/**
+ * ===================================================================================================
+ * INVOKE ACTIVITY HANDLER
+ * ===================================================================================================
+ * Handles special "invoke" activities that require immediate responses:
+ * - Adaptive card action submissions (for cards shown in Teams app, not in chat)
+ * - File consent requests (when uploading files to OneDrive)
+ * 
+ * IMPORTANT: Invoke activities must return a response within 5 seconds or Teams will show an error
+ * ===================================================================================================
+ */
 teamsBot.activity("invoke", async (context, state) => {
+  console.log('[INVOKE] Activity received:', context.activity.name);
+  console.log('[INVOKE] Activity value:', JSON.stringify(context.activity.value));
+  
+  // -------------------------------------------------------------------------
+  // Handle adaptive card action for /generate command
+  // This is triggered when the card is shown in a task module or Teams app
+  // -------------------------------------------------------------------------
+  if (context.activity.name === 'adaptiveCard/action' && context.activity.value?.action === 'generateResumeFromCard') {
+    console.log('Generate resume card action detected');
+    
+    // First, acknowledge the invoke immediately
+    const invokeResponse = { status: 200 };
+    
+    // Process the request asynchronously
+    setTimeout(async () => {
+      try {
+        // Initialize state.conversation if undefined
+        if (!state) {
+          state = {};
+        }
+        if (!state.conversation) {
+          state.conversation = {};
+        }
+
+        const resumeLink = context.activity.value.resumeLink?.trim();
+        const employeeId = context.activity.value.employeeId?.trim();
+
+        if (!resumeLink || !employeeId) {
+          await context.sendActivity('⚠️ Both Employee ID and OneDrive link are required.');
+          return;
+        }
+
+        await context.sendActivity('⏳ Generating resume from OneDrive link...');
+
+        // Build payload for generate endpoint
+        const payload = {
+          employee_id: employeeId,
+          resume_link: resumeLink
+        };
+
+        try {
+          // First, try to get binary response from NIFI processor
+          const response = await axiosWithFallback("post", "/generate", {
+            data: payload,
+            config: {
+              responseType: "arraybuffer",
+              headers: { "Content-Type": "application/json" },
+              timeout: 600000
+            }
+          });
+
+          // Extract JSON resume data from headers (same pattern as /makeresume)
+          let resumeJsonData = null;
+          try {
+            const possibleJsonHeaders = [
+              'resume-json',
+              'x-resume-json', 
+              'resume-data',
+              'x-resume-data',
+              'json-data'
+            ];
+            
+            let jsonFromHeaders = null;
+            for (const headerName of possibleJsonHeaders) {
+              if (response.headers[headerName]) {
+                jsonFromHeaders = response.headers[headerName];
+                break;
+              }
+            }
+            
+            if (jsonFromHeaders) {
+              if (typeof jsonFromHeaders === 'string') {
+                resumeJsonData = JSON.parse(jsonFromHeaders);
+              } else {
+                resumeJsonData = jsonFromHeaders;
+              }
+            } else {
+              const candidateName = response.headers['resume-name'] || response.headers['x-resume-name'] || response.headers['candidate-name'];
+              const candidateEmail = response.headers['resume-email'] || response.headers['x-resume-email'] || response.headers['candidate-email'];
+              
+              if (candidateName) {
+                resumeJsonData = {
+                  name: candidateName,
+                  email: candidateEmail || 'Not provided',
+                };
+              }
+            }
+          } catch (headerParseErr) {
+            // Silent fallback
+          }
+
+          // Check if we received a valid binary response (Word document)
+          if (response.data && response.data.byteLength > 0) {
+            const buffer = Buffer.from(response.data);
+            
+            // Try to detect if this is actually a Word document or JSON
+            const firstBytes = buffer.slice(0, 4);
+            const isWordDoc = firstBytes[0] === 0x50 && firstBytes[1] === 0x4B; // ZIP signature (Word docs are ZIP files)
+            
+            if (isWordDoc) {
+              // This is a genuine Word document - proceed with upload (same pattern as /makeresume)
+              if (context.activity.channelId === 'emulator') {
+                await context.sendActivity("✅ Resume generated! (Teams Playground mode - file would be uploaded to OneDrive in production)");
+                await context.sendActivity(`📄 File size: ${(buffer.length / 1024).toFixed(2)} KB`);
+                await context.sendActivity("ℹ️ In production Teams, this would be uploaded to OneDrive and available for download.");
+                if (resumeJsonData) {
+                  await context.sendActivity(`📋 Backup JSON Data: Available (${Object.keys(resumeJsonData).length} fields)`);
+                }
+              } else if (context.activity.conversation.conversationType === 'personal') {
+                const timestamp = Date.now();
+                const filename = `resume-${timestamp}.docx`;
+                state.conversation.pendingWordBuffer = buffer.toString('base64');
+                state.conversation.pendingWordFilename = filename;
+                state.conversation.pendingWordSize = buffer.length;
+                
+                await context.sendActivity({
+                  type: "message",
+                  attachments: [
+                    {
+                      contentType: "application/vnd.microsoft.teams.card.file.consent",
+                      name: filename,
+                      content: {
+                        description: "Resume document generated by HR Bot",
+                        sizeInBytes: buffer.length,
+                        acceptContext: { resume: true },
+                        declineContext: { resume: true }
+                      }
+                    }
+                  ]
+                });
+                await context.sendActivity('✅ Resume generated!');
+                if (resumeJsonData) {
+                  await context.sendActivity(`📋 Backup JSON Data: Available (${Object.keys(resumeJsonData).length} fields)`);
+                }
+              } else {
+                await context.sendActivity("⚠️ Resume generation is only available in personal chat");
+                if (resumeJsonData) {
+                  await displayResumeCard(context, resumeJsonData);
+                } else {
+                  await context.sendActivity(`❌ No resume data available to display.`);
+                }
+              }
+            } else {
+              // This might be JSON data in the body instead of headers - try to parse it
+              try {
+                const jsonString = buffer.toString('utf8');
+                const jsonData = JSON.parse(jsonString);
+                
+                // Use JSON data from body, or headers if available
+                const finalJsonData = resumeJsonData || jsonData;
+                await context.sendActivity('⏳ Generating resume...');
+                await displayResumeCard(context, finalJsonData);
+                
+              } catch (parseErr) {
+                // Use JSON data from headers as final fallback
+                if (resumeJsonData) {
+                  await context.sendActivity('⏳ Generating resume...');
+                  await displayResumeCard(context, resumeJsonData);
+                } else {
+                  await context.sendActivity(`❌ Could not generate resume. Please try again later.`);
+                }
+              }
+            }
+          } else {
+            // No binary data received - use JSON from headers if available
+            if (resumeJsonData) {
+              await displayResumeCard(context, resumeJsonData);
+            } else {
+              throw new Error("Empty response received with no JSON data in headers");
+            }
+          }
+
+        } catch (err) {
+          // Try to get JSON fallback response
+          let fallbackData = null;
+          let fallbackText = "Resume generation failed.";
+
+          try {
+            // Attempt to get JSON response instead of binary
+            const jsonResponse = await axiosWithFallback("post", "/generate", {
+              data: payload,
+              config: {
+                headers: { "Content-Type": "application/json" },
+                timeout: 600000
+              }
+            });
+
+            if (jsonResponse.data && typeof jsonResponse.data === "object") {
+              fallbackData = jsonResponse.data;
+            } else if (typeof jsonResponse.data === "string") {
+              fallbackData = JSON.parse(jsonResponse.data);
+            }
+          } catch (jsonErr) {
+            // If JSON request also fails, try to parse error response
+            try {
+              const errorResponse = err?.response?.data;
+              if (errorResponse) {
+                if (typeof errorResponse === "string") {
+                  fallbackData = JSON.parse(errorResponse);
+                } else if (typeof errorResponse === "object") {
+                  fallbackData = errorResponse;
+                }
+              }
+            } catch (parseErr) {
+              fallbackText = err?.response?.data?.toString?.() || err.message || "Resume generation failed.";
+            }
+          }
+
+          // Display fallback adaptive card if we have valid JSON data
+          if (fallbackData && typeof fallbackData === "object") {
+            if (fallbackData.name || fallbackData.skills || fallbackData.experience) {
+              await context.sendActivity('⏳ Generating resume...');
+              await displayResumeCard(context, fallbackData);
+            } else {
+              await context.sendActivity(`❌ Resume generation failed. Please try again later.`);
+              await context.sendActivity(`📊 Error Details: \`${fallbackText}\``);
+            }
+          } else {
+            // Final fallback - show error message
+            await context.sendActivity({
+              type: "message",
+              attachments: [
+                {
+                  contentType: "application/vnd.microsoft.card.adaptive",
+                  content: {
+                    type: "AdaptiveCard",
+                    version: "1.4",
+                    body: [
+                      {
+                        type: "TextBlock",
+                        text: "❌ Resume Generation Failed",
+                        size: "Large",
+                        weight: "Bolder",
+                        color: "Attention",
+                        wrap: true
+                      },
+                      {
+                        type: "TextBlock",
+                        text: fallbackText,
+                        wrap: true
+                      },
+                      {
+                        type: "TextBlock",
+                        text: "Please verify the OneDrive link and employee ID, then try again.",
+                        wrap: true,
+                        spacing: "Small"
+                      }
+                    ],
+                    $schema: "http://adaptivecards.io/schemas/adaptive-card.json"
+                  }
+                }
+              ]
+            });
+          }
+        }
+
+      } catch (err) {
+        console.error('[ERROR] Error generating resume:', err);
+        await context.sendActivity({
+          type: 'message',
+          text: `❌ Failed to generate resume: ${err.message}`
+        });
+      }
+    }, 100); // Small delay to ensure invoke response is sent first
+    
+    return invokeResponse;
+  }
+  
+  // -------------------------------------------------------------------------
+  // Handle file consent for file upload
+  // This is triggered when user accepts/declines the file upload prompt
+  // -------------------------------------------------------------------------
   if (
     context.activity.name === "fileConsent/invoke" &&
     context.activity.value &&
@@ -1705,53 +2670,26 @@ teamsBot.activity("invoke", async (context, state) => {
   }
 });
 
+/**
+ * ===================================================================================================
+ * CONVERSATION UPDATE HANDLER
+ * ===================================================================================================
+ * Handles when new members are added to the conversation (bot installed or user joins)
+ * ===================================================================================================
+ */
 teamsBot.conversationUpdate("membersAdded", async (context, state) => {
   await sendWelcomeCard(context);
 });
 
-// Helper: Fetch and display /view card as fallback
-async function fetchAndDisplayViewCard(context, identifier_type, identifier) {
-  try {
-    await context.sendActivity('🔍 Fetching candidate profile...');
-
-    const payload = { identifier_type, identifier };
-    const response = await axiosWithFallback("post", "/view", {
-      data: payload,
-      config: {
-        headers: { "Content-Type": "application/json" },
-        timeout: 20000
-      }
-    });
-    let resumeData = response.data;
-    if (typeof resumeData === "string") {
-      try {
-        resumeData = JSON.parse(resumeData);
-      } catch (e) {
-        await context.sendActivity(`❌ Could not parse resume data. Raw response: \n\n\`${resumeData}\``);
-        return;
-      }
-    }
-    if (!resumeData || (!resumeData.name && !resumeData.skills && !resumeData.experience)) {
-      await context.sendActivity("❌ Candidate not found in database.");
-      return;
-    }
-    await context.sendActivity('✅ Found candidate! Displaying resume...');
-    await displayResumeCard(context, resumeData);
-  } catch (err) {
-    let errMsg = err.response?.data || err.message;
-    if (typeof errMsg === "object") {
-      errMsg = JSON.stringify(errMsg, null, 2);
-    }
-    await context.sendActivity(`❌ Error while searching for candidate as fallback: \n\n\`${errMsg}\``);
-  }
-}
-
-teamsBot.activity(
-  async (context) => Promise.resolve(context.activity.type === "message"),
-  async (context, state) => {
-    await context.sendActivity(`Matched function: ${context.activity.type}`);
-  }
-);
 
 
+
+
+/**
+ * ===================================================================================================
+ * MODULE EXPORTS
+ * ===================================================================================================
+ * Exports the configured Teams bot instance for use in the main application
+ * ===================================================================================================
+ */
 module.exports.teamsBot = teamsBot;

@@ -6,21 +6,24 @@ import string
 from openai import AzureOpenAI
 import os
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path="/home/nifi/nifi2/HR_Bot/.env")
+
+# Centralized env configuration
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
 
 class ResumeRetailorWithJD:
-    def __init__(self, azure_config: Dict[str, str]):
-
-        api_key = ""
-        api_version = "2024-08-01-preview"
-        azure_endpoint = "https://us-tax-law-rag-demo.openai.azure.com/"
-        deployment_name = "gpt-4o-mini"
- 
+    def __init__(self):
         self.client = AzureOpenAI(
-            api_key=api_key,
-            api_version=api_version,
-            azure_endpoint=azure_endpoint
+            api_key=AZURE_OPENAI_API_KEY,
+            api_version=AZURE_OPENAI_API_VERSION,
+            azure_endpoint=AZURE_OPENAI_ENDPOINT
         )
-        self.deployment_name = deployment_name
+        self.deployment_name = AZURE_OPENAI_DEPLOYMENT
         self.input_cost_per_1k = 0.000165
         self.output_cost_per_1k = 0.000660
 
@@ -862,7 +865,7 @@ class ResumeRetailorWithJD:
 def main():
     # Redirect stderr to log file for error tracking
     original_stderr = sys.stderr
-    log_file_path = "/home/nifi/nifi2/users/HR_Teams_Bot_Dev/llm_usage.log"
+    log_file_path = os.getenv("LLM_USAGE_LOG_PATH")
     try:
         with open(log_file_path, 'a') as log_file:
             sys.stderr = log_file
@@ -874,14 +877,7 @@ def main():
                 print(json.dumps({"error": f"Invalid JSON input: {str(e)}"}), file=sys.stderr)
                 sys.exit(1)
 
-            azure_config = {
-            "api_key": "",
-            "api_version": "2024-08-01-preview",
-            "endpoint": "https://us-tax-law-rag-demo.openai.azure.com/",
-            "deployment": "gpt-4o-mini"
-        }
-
-            retailor = ResumeRetailorWithJD(azure_config)
+            retailor = ResumeRetailorWithJD()
 
             try:
                 retailored_resume = retailor.retailor_resume_with_jd(resume_data)
